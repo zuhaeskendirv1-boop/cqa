@@ -41,7 +41,8 @@ Scoring discipline:
 
 
 def format_transcript(transcript: list[dict]) -> str:
-    return "\n".join(f"[{i}] {t.get('speaker','?')}: {str(t.get('text','')).strip()}" for i, t in enumerate(transcript))
+    """Turns are numbered from 1 over the FULL transcript (client, bot, system included) — same as the organizers."""
+    return "\n".join(f"[{i}] {t.get('speaker','?')}: {str(t.get('text','')).strip()}" for i, t in enumerate(transcript, start=1))
 
 
 def _answer_schema(c: dict) -> str:
@@ -93,7 +94,7 @@ CRITERION: {c['title']}
 DEFINITION: {c.get('description','')}
 ANSWER FORMAT: {_answer_schema(c)}{na}{ex_text}
 
-TRANSCRIPT (turn numbers in brackets):
+TRANSCRIPT (turn numbers in brackets, numbered from 1 over all turns incl. client/bot/system):
 {transcript_text}
 
 Return JSON:
@@ -117,7 +118,7 @@ def build_batch_prompt(checklist: dict, ctx: str, transcript_text: str, calibrat
 CRITERIA:
 {crit}
 
-TRANSCRIPT (turn numbers in brackets):
+TRANSCRIPT (turn numbers in brackets, numbered from 1 over all turns incl. client/bot/system):
 {transcript_text}
 
 Return JSON: {{"results": {{"<criterion id>": {{"answer": ..., "confidence": ..., "evidence_turns": [...], "checked_range": [a,b], "explanation": "...", "na_reason": "..."}}, ...}}}}"""
@@ -164,12 +165,12 @@ def _clean(c: dict, r: dict, n_turns: int) -> dict:
         ans = "yes" if str(ans).strip().lower() in ("yes", "да", "true", "1", "иә") else "no"
     else:
         ans = int(snap_to_steps(c, ans))  # clamp + snap to the allowed steps (e.g. 13 -> 15)
-    ev = sorted({int(i) for i in r.get("evidence_turns", []) if str(i).lstrip("-").isdigit() and 0 <= int(i) < n_turns})
-    cr = r.get("checked_range") or [0, max(0, n_turns - 1)]
+    ev = sorted({int(i) for i in r.get("evidence_turns", []) if str(i).lstrip("-").isdigit() and 1 <= int(i) <= n_turns})
+    cr = r.get("checked_range") or [1, max(1, n_turns)]
     try:
-        cr = [max(0, int(cr[0])), min(n_turns - 1, int(cr[1]))]
+        cr = [max(1, int(cr[0])), min(max(1, n_turns), int(cr[1]))]
     except (TypeError, ValueError, IndexError):
-        cr = [0, max(0, n_turns - 1)]
+        cr = [1, max(1, n_turns)]
     return {"answer": ans, "confidence": float(r.get("confidence", 0.5) or 0.5), "evidence_turns": ev, "checked_range": cr,
             "explanation": str(r.get("explanation", "")).strip(), "na_reason": str(r.get("na_reason", "")).strip() if ans == "N/A" else "",
             "votes": r.get("votes")}

@@ -20,11 +20,11 @@ from typing import Any
 import requests
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db, llm, prechecks
+from . import db, llm, prechecks, results_export
 from .evaluator import evaluate
 from .scoring import compute_totals
 
@@ -213,7 +213,7 @@ def list_conversations():
         out.append({
             "conversation_id": c["conversation_id"], "channel": c["channel"], "language": c["language"], "turns": len(c["transcript"]),
             "has_audio": bool(c.get("audio_url")), "group": c.get("dataset_group_id"), "has_gt": c["conversation_id"] in gt,
-            "evaluation_id": e["id"] if e else None, "total": e["final_totals"]["total"] if e else None,
+            "evaluation_id": e["id"] if e else None, "total": e["final_totals"]["total"] if e else None, "error": e.get("error") if e else None,
             "gross_error": e["final_totals"]["gross_error"] if e else None, "status": e["status"] if e else "new",
         })
     return out
@@ -283,6 +283,11 @@ def run_batch(body: BatchBody):
                 _run_eval(cid, body.checklist_id, body.mode, body.samples)
             except Exception as e:  # noqa: BLE001
                 job["errors"].append({"conversation_id": cid, "error": str(e)})
+                eid = db.new_id("eval")  # keep the failure: it becomes status="error" in results.json, never a silent zero
+                db.put("evaluations", eid, {"id": eid, "conversation_id": cid, "checklist_id": body.checklist_id, "status": "error", "error": str(e),
+                                            "ai": {}, "ai_totals": {"total": None, "gross_error": False, "sections": {}, "criteria": {}, "total_scale": 100, "gross_error_criteria": []},
+                                            "final_answers": {}, "final_totals": {"total": None, "gross_error": False, "sections": {}, "criteria": {}, "total_scale": 100, "gross_error_criteria": []},
+                                            "decisions": {}, "meta": {"provider": llm.PROVIDER, "model": llm.MODEL, "mode": body.mode, "samples": body.samples, "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}, "checklist_id": body.checklist_id, "checklist_version": 0}, "trace": []})
             job["done"] += 1
             db.put("jobs", job["id"], job)
         job["running"] = False
@@ -516,6 +521,38 @@ def export_csv(checklist_id: str | None = None):
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=cqa_results.csv"})
 
 
+@app.get("/api/export/results.json")
+def export_results(group: str | None = None):
+    """Official submission JSON (Appendix, schema 1.0). ?group=DEV / ?group=<control group id>; omit for all dialogs."""
+    doc = results_export.build(group)
+    return JSONResponse(doc, headers={"Content-Disposition": f"attachment; filename=results_{(group or 'all').lower()}.json", "X-CQA-Problems": str(len(results_export.validate(doc)))})
+
+
+class WriteResultsBody(BaseModel):
+    group: str
+    target: str = "dev"  # dev | prod
+
+
+@app.post("/api/export/results/write")
+def write_results(body: WriteResultsBody):
+    """Write results/<dev|prod>/results.json into the repo and validate it — then `git add results && git commit && git push`."""
+    doc = results_export.build(body.group)
+    out = ROOT / "results" / ("prod" if body.target == "prod" else "dev") / "results.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    probs = results_export.validate(doc)
+    n_ok = sum(r["status"] == "ok" for r in doc["results"])
+    return {"path": str(out.relative_to(ROOT)), "records": len(doc["results"]), "ok": n_ok, "error": len(doc["results"]) - n_ok, "problems": probs, "team_name": doc["team_name"], "model": doc["model"]}
+
+
+@app.get("/api/groups")
+def groups():
+    g: dict[str, int] = {}
+    for c in db.get_all("conversations"):
+        g[c.get("dataset_group_id") or "manual"] = g.get(c.get("dataset_group_id") or "manual", 0) + 1
+    return g
+
+
 @app.get("/api/export.json")
 def export_json():
     latest = _latest_evals()
@@ -527,7 +564,7 @@ def export_json():
 def stats():
     return {"version": VERSION, "llm": llm.cost_estimate(), "conversations": db.count("conversations"), "evaluations": db.count("evaluations"),
             "open_appeals": len([a for a in db.get_all("appeals") if a["status"] == "open"]), "ground_truth": db.count("ground_truth"),
-            "roles_protected": {k: bool(v) for k, v in ROLE_TOKENS.items()}}
+            "roles_protected": {k: bool(v) for k, v in ROLE_TOKENS.items()}, "team_name": results_export.TEAM_NAME, "submission_model": results_export.model_info()}
 
 
 @app.get("/api/health")

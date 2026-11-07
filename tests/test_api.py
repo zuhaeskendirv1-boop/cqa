@@ -38,8 +38,9 @@ def test_full_flow():
     assert c.post(f"/api/appeals/{a['id']}/decision", json={"decision": "confirm", "reason": "x"}, headers=REV).status_code == 409
 
     # invalid decision values are rejected
+    a3 = c.post(f"/api/evaluations/{e['id']}/appeals", json={"criterion_id": "empathy", "comment": "спорно"}).json()
+    assert c.post(f"/api/appeals/{a3['id']}/decision", json={"decision": "change", "new_answer": "N/A", "reason": "x"}, headers=REV).status_code == 400  # N/A not allowed
     a2 = c.post(f"/api/evaluations/{e['id']}/appeals", json={"criterion_id": "consultation", "comment": "спорно"}).json()
-    assert c.post(f"/api/appeals/{a2['id']}/decision", json={"decision": "change", "new_answer": "N/A", "reason": "x"}, headers=REV).status_code == 400
     assert c.post(f"/api/appeals/{a2['id']}/decision", json={"decision": "change", "new_answer": 13, "reason": "x"}, headers=REV).status_code == 400  # not a step
     ok = c.post(f"/api/appeals/{a2['id']}/decision", json={"decision": "change", "new_answer": 15, "reason": "x"}, headers=REV).json()
     assert ok["evaluation"]["final_answers"]["consultation"] == 15
@@ -64,10 +65,27 @@ def test_ground_truth_and_report():
     c = client()
     c.post("/api/evaluate", json={"conversation_id": "s-ru-001"})
     assert c.post("/api/ground_truth", json={"conversation_id": "s-ru-001", "total": 90}).status_code == 403
-    g = c.post("/api/ground_truth", json={"conversation_id": "s-ru-001", "criteria": {"contact": "yes", "need": "yes", "identification": "N/A", "consultation": 15, "empathy": "yes", "dialog_management": 10, "closing": "yes", "gross_error": "no"}}, headers=REV).json()
+    g = c.post("/api/ground_truth", json={"conversation_id": "s-ru-001", "criteria": {"contact": "yes", "discovery": "yes", "identification": "N/A", "consultation": 15, "empathy": "yes", "dialogue": 10, "closure": "yes", "critical": "no"}}, headers=REV).json()
     assert g["total"] == 93.75  # (10+15+15+15+15+5)/80*100
     rep = c.get("/api/calibration/report").json()
     assert rep["n"] >= 1 and "mae" in rep and "contact" in rep["criteria"]
+
+
+def test_results_json_official_format():
+    c = client()
+    c.post("/api/evaluate", json={"conversation_id": "s-en-001"})
+    doc = c.get("/api/export/results.json?group=SAMPLE").json()
+    assert doc["schema_version"] == "1.0" and doc["model"]["mode"] in ("local", "external_api", "hybrid")
+    rec = next(r for r in doc["results"] if r["conversation_id"] == "s-en-001")
+    assert rec["status"] == "ok"
+    assert [x["criterion_id"] for x in rec["criteria"]] == ["contact", "discovery", "identification", "consultation", "empathy", "dialogue", "closure", "critical"]
+    assert all(isinstance(x["value"], (bool, int)) or x["value"] is None for x in rec["criteria"])
+    assert all(t >= 1 for x in rec["criteria"] for t in x["evidence_turns"])  # 1-based
+    assert isinstance(rec["score"]["final_score"], float) and isinstance(rec["score"]["critical_flag"], bool)
+    unscored = [r for r in doc["results"] if r["status"] == "error"]
+    assert all(r["criteria"] == [] and r["score"] is None and r["error"] for r in unscored)
+    w = c.post("/api/export/results/write", json={"group": "SAMPLE", "target": "dev"}).json()
+    assert w["path"] == "results/dev/results.json" and w["problems"] == []
 
 
 def test_import_and_export():

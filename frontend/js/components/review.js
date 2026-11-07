@@ -9,8 +9,8 @@ CQA.views.review = async function (root) {
   for (const a of appeals) {
     const [ev, conv] = await Promise.all([CQA.api.evaluation(a.evaluation_id), CQA.api.conversation(a.conversation_id)]);
     const chk = ev.checklist_snapshot, c = chk.criteria.find(x => x.id === a.criterion_id), r = ev.ai[a.criterion_id];
-    const frag = (r.evidence_turns.length ? r.evidence_turns : [r.checked_range[0], r.checked_range[1]]);
-    const lo = Math.max(0, Math.min(...frag) - 1), hi = Math.min(conv.transcript.length - 1, Math.max(...frag) + 1);
+    const frag = (r.evidence_turns.length ? r.evidence_turns : [r.checked_range[0], r.checked_range[1]]);  // 1-based
+    const lo = Math.max(1, Math.min(...frag) - 1), hi = Math.min(conv.transcript.length, Math.max(...frag) + 1);
     const node = el(`<section class="panel appeal ${a.status}">
       <div class="row gap wrap">
         <b>${esc(a.conversation_id)}</b> · <span>${esc(c.title)}</span>
@@ -28,7 +28,7 @@ CQA.views.review = async function (root) {
         </div>
         <div class="fragment">
           <div class="muted small">Фрагмент диалога (#${lo}–#${hi})</div>
-          ${conv.transcript.slice(lo, hi + 1).map((t, k) => `<div class="turn ${esc(t.speaker)} ${r.evidence_turns.includes(lo + k) ? 'hl' : ''}"><span class="idx">#${lo + k}</span> <b>${esc(t.speaker)}</b>: ${esc(t.text)}</div>`).join('')}
+          ${conv.transcript.slice(lo - 1, hi).map((t, k) => `<div class="turn ${esc(t.speaker)} ${r.evidence_turns.includes(lo + k) ? 'hl' : ''}"><span class="idx">#${lo + k}</span> <b>${esc(t.speaker)}</b>: ${esc(t.text)}</div>`).join('')}
         </div>
       </div>
       ${a.status === 'open' ? `

@@ -13,7 +13,7 @@ cp .env.example .env            # choose the LLM provider (see below)
 # open http://localhost:8000
 ```
 
-Tests: `pytest -q tests` (13 tests: scoring rules incl. steps / N/A / gross error, API flow, roles, import/export).
+Tests: `pytest -q tests` (14 tests: scoring rules incl. steps / N/A / gross error, API flow, roles, import/export).
 
 ### Get the datasets
 
@@ -21,6 +21,15 @@ Tests: `pytest -q tests` (13 tests: scoring rules incl. steps / N/A / gross erro
 python tools/fetch_dataset.py "<GET link from the organizers' PDF, group_id=DEV>"     # -> data/dev.json, auto-imported on first start
 ```
 Control set: paste the new link (new `group_id`) into the UI import field — the backend fetches it server-side (no CORS) — then **«Оценить все неоценённые»** → **«Экспорт CSV»**.
+
+### Submission files (`results/dev/results.json`, `results/prod/results.json`)
+
+Official JSON 1.0 from the Appendix: one record per dialog, 8 criteria with `value` true/false/null/number, `rationale`, 1-based `evidence_turns`, `score.final_score` (2 decimals), `score.critical_flag`; unscored dialogs are kept as `status: "error"` (never a silent zero). `team_name` and `model.mode` come from `.env` (`TEAM_NAME`, `MODEL_MODE`; mode is derived from the provider if omitted).
+
+* UI: **Диалоги → набор → «Записать results/dev|prod/results.json»** (validates ids, duplicates, ranges) → `git add results && git commit && git push`.
+* CLI: `python tools/export_results.py --group DEV --target dev`; control stage: import the new link, «Оценить все неоценённые», `--group <control id> --target prod`.
+
+**Control-stage runbook (1 hour):** import by link → batch (EVAL_SAMPLES=3) → check the list for ⚠ error rows and re-score them → write prod results → push → open the file on GitHub to confirm.
 
 ### Choose an AI backend (`.env`)
 
@@ -50,19 +59,20 @@ Cost readout (calls, tokens, ≈USD) in the top bar / `GET /api/stats`. gpt-4o-m
 
 ## Official checklist (default) and scoring rules
 
-| # | Criterion | Type | Weight |
+| id | Criterion | value | Weight |
 |---|---|---|---|
-| 1 | Установление контакта | Да/Нет | 10 |
-| 2 | Выявление потребности | Да/Нет/N/A | 15 |
-| 3 | Идентификация | Да/Нет/N/A | 20 |
-| 4 | Консультация | 0/5/10/15/20 | 20 |
-| 5 | Эмпатия | Да/Нет | 15 |
-| 6 | Управление диалогом | 0/4/7/10 | 15 |
-| 7 | Завершение | Да/Нет/N/A | 5 |
-| 8 | Грубые ошибки | Да/Нет, **без баллов** | — |
+| `contact` | Установление контакта | true/false | 10 |
+| `discovery` | Выявление потребности | true/false/null | 15 |
+| `identification` | Идентификация | true/false/null | 20 |
+| `consultation` | Корректная и полная консультация | 0/5/10/15/20/null | 20 |
+| `empathy` | Эмпатия и клиентоориентированность | true/false | 15 |
+| `dialogue` | Управление диалогом, скорость и грамотность | 0/4/7/10 | 15 |
+| `closure` | Завершение | true/false/null | 5 |
+| `critical` | Грубые ошибки | true/false, **без баллов** | — |
 
-`backend/default_checklist.json` carries this structure; **paste the exact criterion wording and N/A conditions from the organizers' PDF into the editor** (field `description` / `na_hint`) — the model reads that text.
+`backend/default_checklist.json` carries the official ids, the exact wording from *CQA_Chat_Quality_Checklist* (criteria, N/A conditions, scale steps) and the памятка rules (Нет vs N/A, what counts as a gross error). Keep the ids if you edit the checklist — `results.json` is keyed by them.
 
+* Turn numbers are 1-based over the full transcript (client, bot, system included) — in the UI, in prompts and in `results.json`.
 * Answer → 0..1 (yes/no → 1/0; step scale → snapped to the nearest allowed step, e.g. 13 → 15, then (v−min)/(max−min)).
 * **Total** = Σ(w·s) / Σ(w over applicable criteria) × 100, rounded to **2 decimals**. N/A criteria drop out and their weight is redistributed proportionally (effective weight shown in the card). **No applicable criteria → total is not computed (null).**
 * **Sections**: same formula inside each section.
@@ -87,9 +97,10 @@ Cost readout (calls, tokens, ≈USD) in the top bar / `GET /api/stats`. gpt-4o-m
 ## Layout
 
 ```
-backend/   main.py (API, roles) · evaluator.py (prompts, voting, trace) · scoring.py · prechecks.py · llm.py (openai/ollama/mock) · db.py (SQLite) · default_checklist.json
+backend/   main.py (API, roles) · evaluator.py (prompts, voting, trace) · scoring.py · prechecks.py · results_export.py (official JSON) · llm.py (openai/ollama/mock) · db.py (SQLite) · default_checklist.json
+results/   dev/results.json · prod/results.json (generated; committed for submission)
 frontend/  index.html · css/app.css · js/api.js · js/util.js · js/app.js (router) · js/components/{dialogs,card,checklist,review,calibration}.js
-tools/     fetch_dataset.py · compare_gt.py
+tools/     fetch_dataset.py · compare_gt.py · export_results.py
 tests/     test_scoring.py · test_api.py
 data/      sample_dev.json (4 demo dialogs) · calibration.example.json · cqa.sqlite3 (created at runtime)
 docs/      LABELING_GUIDE.md · DEMO_SCRIPT.md
@@ -106,7 +117,8 @@ docs/      LABELING_GUIDE.md · DEMO_SCRIPT.md
 | GET | `/api/evaluations?conversation_id=` · `/api/evaluations/{id}` · `/api/evaluations/{id}/trace` | |
 | POST | `/api/evaluations/{id}/appeals` · `/api/appeals/{id}/decision` (reviewer/admin) | |
 | GET / POST / DELETE | `/api/ground_truth` · GET `/api/calibration/report` | |
-| GET | `/api/export.csv` · `/api/export.json` · `/api/stats` · `/api/health` | |
+| GET / POST | `/api/export/results.json?group=` · `/api/export/results/write` `{group, target}` | official submission JSON |
+| GET | `/api/export.csv` · `/api/export.json` · `/api/groups` · `/api/stats` · `/api/health` | |
 
 ## Known limits (said out loud)
 

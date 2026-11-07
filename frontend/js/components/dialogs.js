@@ -2,7 +2,8 @@
 CQA.views = CQA.views || {};
 CQA.views.dialogs = async function (root) {
   const { esc, el, toast, scoreClass } = CQA.util;
-  const [convs, checklists] = await Promise.all([CQA.api.conversations(), CQA.api.checklists()]);
+  const [convs, checklists, groups, stats] = await Promise.all([CQA.api.conversations(), CQA.api.checklists(), CQA.api.groups(), CQA.api.stats()]);
+  const groupOpts = Object.entries(groups).map(([g, n]) => `<option value="${esc(g)}">${esc(g)} (${n})</option>`).join('');
   const chkOpts = checklists.map(c => `<option value="${esc(c.id)}">${esc(c.name)} (v${c.version})</option>`).join('');
 
   root.innerHTML = '';
@@ -24,9 +25,17 @@ CQA.views.dialogs = async function (root) {
         <div class="field"><label>Самплов (голосование)</label><select id="samp-sel"><option value="">.env</option><option>1</option><option>3</option><option>5</option></select></div>
         <div class="field end"><button id="batch-btn" class="primary">Оценить все неоценённые</button></div>
         <div class="field end"><button id="batch-all-btn">Переоценить все</button></div>
-        <div class="field end"><a class="btn" href="${CQA.api.exportUrl()}" download>Экспорт CSV</a></div>
+        <div class="field end"><a class="btn" href="${CQA.api.exportUrl()}" download>CSV</a></div>
+      </div>
+      <div class="row wrap gap top submit-row">
+        <div class="field"><label>Набор (group_id)</label><select id="grp-sel">${groupOpts}</select></div>
+        <div class="field end"><a class="btn" id="res-dl" href="#" download>Скачать results.json</a></div>
+        <div class="field end"><button id="res-dev">Записать results/dev/results.json</button></div>
+        <div class="field end"><button id="res-prod" class="primary">Записать results/prod/results.json</button></div>
+        <div class="muted small">команда: <b>${esc(stats.team_name)}</b> · model: ${esc(stats.submission_model.mode)} / ${esc(stats.submission_model.name)} (TEAM_NAME, MODEL_MODE в .env)</div>
       </div>
       <div id="batch-progress" class="progress hidden"><div class="bar"></div><span></span></div>
+      <div id="batch-errors" class="muted small"></div>
     </section>`));
 
   const table = el(`<section class="panel">
@@ -44,7 +53,7 @@ CQA.views.dialogs = async function (root) {
         <td>${c.channel === 'voice call' ? '📞 звонок' : '💬 чат'}</td>
         <td><span class="pill">${esc(c.language)}</span></td>
         <td>${c.turns}</td>
-        <td><span class="status ${c.status}">${{ new: 'не оценён', ai_scored: 'оценён AI', appealed: 'апелляция', reviewed: 'проверено' }[c.status] || c.status}</span></td>
+        <td><span class="status ${c.status}" title="${esc(c.error || '')}">${{ new: 'не оценён', ai_scored: 'оценён AI', appealed: 'апелляция', reviewed: 'проверено', error: '⚠ ошибка' }[c.status] || c.status}</span> <span class="muted small">${esc(c.group || '')}</span></td>
         <td class="score ${scoreClass(c.total)}">${CQA.util.fmtTotal(c.total)}${c.gross_error ? ' <span class="gross" title="грубая ошибка">⚠</span>' : ''}</td>
         <td><button class="small open">Открыть</button> <button class="small eval">${c.total == null ? 'Оценить' : 'Переоценить'}</button></td>
       </tr>`).join('');
@@ -85,10 +94,23 @@ CQA.views.dialogs = async function (root) {
       const s = await CQA.api.batchStatus();
       prog.querySelector('.bar').style.width = (s.total ? s.done / s.total * 100 : 0) + '%';
       prog.querySelector('span').textContent = `${s.done}/${s.total}${s.errors.length ? ` · ошибок: ${s.errors.length}` : ''}`;
-      if (s.running) setTimeout(tick, 1500); else { toast('Пакетная оценка завершена'); CQA.go('dialogs'); }
+      if (s.errors.length) root.querySelector('#batch-errors').textContent = s.errors.map(x => `${x.conversation_id}: ${x.error}`).join(' · ');
+      if (s.running) setTimeout(tick, 1500); else { toast(`Пакетная оценка завершена${s.errors.length ? `, ошибок: ${s.errors.length}` : ''}`); CQA.go('dialogs'); }
     };
     tick();
   }
   root.querySelector('#batch-btn').onclick = () => runBatch(convs.filter(c => c.total == null).map(c => c.conversation_id));
+  const grp = root.querySelector('#grp-sel');
+  const setDl = () => { root.querySelector('#res-dl').href = CQA.api.resultsUrl(grp.value); };
+  grp.onchange = setDl; setDl();
+  const writeRes = async target => {
+    try {
+      const r = await CQA.api.writeResults({ group: grp.value, target });
+      toast(`${r.path}: ${r.records} записей (ok ${r.ok}, error ${r.error})${r.problems.length ? ` · ПРОБЛЕМЫ: ${r.problems.length}` : ''}`, r.problems.length ? 'err' : 'ok');
+      if (r.problems.length) alert('Проблемы валидации:\n' + r.problems.join('\n'));
+    } catch (err) { toast(err.message, 'err'); }
+  };
+  root.querySelector('#res-dev').onclick = () => writeRes('dev');
+  root.querySelector('#res-prod').onclick = () => confirm(`Записать набор ${grp.value} как results/prod/results.json?`) && writeRes('prod');
   root.querySelector('#batch-all-btn').onclick = () => confirm('Переоценить все диалоги?') && runBatch(null);
 };

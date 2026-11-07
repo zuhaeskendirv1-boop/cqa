@@ -38,5 +38,8 @@ CQA.api = (() => {
     calibrationReport: () => req('GET', '/calibration/report'),
     stats: () => req('GET', '/stats'),
     exportUrl: () => BASE + '/export.csv',
+    groups: () => req('GET', '/groups'),
+    resultsUrl: (group) => BASE + '/export/results.json' + (group ? '?group=' + encodeURIComponent(group) : ''),
+    writeResults: (b) => req('POST', '/export/results/write', b),
   };
 })();

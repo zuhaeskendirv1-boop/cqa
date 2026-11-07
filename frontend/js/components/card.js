@@ -32,11 +32,11 @@ CQA.views.card = async function (root, { id, evalId }) {
   tPane.appendChild(el(`<div class="callstats muted small">
     ${s.duration_sec != null ? `⏱ ${Math.round(s.duration_sec)} с · ` : ''}${s.avg_operator_latency_sec != null ? `ответ оператора в среднем ${s.avg_operator_latency_sec} с (макс ${s.max_operator_latency_sec}) · ` : ''}${s.operator_talk_share != null ? `доля слов оператора ${Math.round(s.operator_talk_share * 100)}% · ` : ''}завершил: ${esc(s.ended_by || '—')}
   </div>`));
-  tPane.appendChild(el(`<div class="turns">${conv.transcript.map((t, i) => `
-    <div class="turn ${esc(t.speaker)}" id="turn-${i}" data-i="${i}">
+  tPane.appendChild(el(`<div class="turns">${conv.transcript.map((t, i0) => { const i = i0 + 1; return `
+    <div class="turn ${esc(t.speaker)}" id="turn-${i}" data-i="${i0}">
       <div class="meta"><span class="idx">#${i}</span> <span class="spk">${esc(t.speaker)}</span> <span class="ts">${esc(fmtTs(t.timestamp))}</span>${isCall && audio ? ` <button class="seek small" title="к фрагменту записи">▶</button>` : ''}${(flagsByTurn[i] || []).map(f => `<span class="flag" title="автопроверка">⚠ ${esc(f)}</span>`).join('')}</div>
       <div class="text">${esc(t.text)}</div>
-    </div>`).join('')}</div>`));
+    </div>`; }).join('')}</div>`));
   tPane.onclick = e => {
     const b = e.target.closest('.seek'); if (!b || !audio) return;
     audio.currentTime = tsOffset(conv.transcript, +b.closest('.turn').dataset.i); audio.play().catch(() => {});
@@ -51,7 +51,9 @@ CQA.views.card = async function (root, { id, evalId }) {
   }
 
   // ---------- results ----------
-  if (!ev) {
+  if (ev && ev.status === 'error') {
+    rPane.innerHTML = `<div class="panel err"><b>Ошибка оценки:</b> ${esc(ev.error || '')}<br><span class="muted small">В results.json этот диалог уйдёт со status="error". Нажмите «Переоценить».</span></div>`;
+  } else if (!ev) {
     rPane.innerHTML = `<p class="muted">Диалог ещё не оценён. Нажмите «Оценить».</p>`;
     if (pre.flags.length) rPane.appendChild(el(`<div class="precheck"><b>Автопроверки:</b> ${pre.flags.map(f => `<span class="flag">⚠ ${esc(f.flag)} #${f.turn}</span>`).join(' ')}</div>`));
   } else {

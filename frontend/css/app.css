@@ -77,3 +77,5 @@ details { margin-top: 8px; } summary { cursor: pointer; }
 .advice { background: var(--panel2); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 6px; }
 .lab-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; margin-top: 10px; }
 .lab-row { display:flex; justify-content: space-between; align-items:center; gap: 10px; background: var(--panel2); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); }
+.submit-row { border-top: 1px dashed var(--line); padding-top: 10px; }
+.status.error { color: var(--bad); }

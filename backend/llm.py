@@ -93,19 +93,19 @@ def _mock(system: str, user: str, temperature: float, model: str) -> tuple[str, 
     neg_kw = ["парол", "password", "точно вырастут", "переведите мне", "на мою карту", "личный номер", "ватсап", "whatsapp"]
     rules = {  # keyed by the official checklist ids
         "contact": (["здравств", "добрый", "сәлем", "қайырлы", "hello", "good "], "yes_no"),
-        "need": (["уточн", "подскажите", "какой", "what ", "which", "қандай"], "yes_no"),
+        "discovery": (["уточн", "подскажите", "какой", "what ", "which", "қандай", "could you"], "yes_no"),
         "identification": (["последние 4", "четыре цифр", "кодовое", "last four", "дату рождения"], "yes_no"),
         "consultation": (neg_kw, "neg_scale"),
         "empathy": (["пожалуйста", "спасибо", "рахмет", "thank", "please", "понимаю", "поняла"], "yes_no"),
-        "dialog_management": (["как хотите", "ну "], "neg_scale"),
-        "closing": (["до свидан", "хорошего", "сау бол", "goodbye", "have a", "всего добр", "остались"], "yes_no"),
-        "gross_error": (neg_kw, "yes_no"),
+        "dialogue": (["как хотите", "ну "], "neg_scale"),
+        "closure": (["до свидан", "хорошего", "сау бол", "goodbye", "have a", "всего добр", "остались"], "yes_no"),
+        "critical": (neg_kw, "yes_no"),
     }
     kws, t = rules.get(cid, (["."], "yes_no"))
     hit = any(k in text for k in kws)
-    sc = {"consultation": [0, 5, 10, 15, 20], "dialog_management": [0, 4, 7, 10]}.get(cid, [0, 1])
+    sc = {"consultation": [0, 5, 10, 15, 20], "dialogue": [0, 4, 7, 10]}.get(cid, [0, 1])
     ans = {"yes_no": "yes" if hit else "no", "neg_scale": sc[1] if hit else sc[-1]}[t]
-    idx = last if cid == "closing" else first
+    idx = last if cid == "closure" else first
     out = {"answer": ans, "confidence": 0.5, "evidence_turns": [idx] if ops else [], "checked_range": [first, last],
            "explanation": "[mock provider] эвристика по ключевым словам — для реальной оценки подключите LLM."}
     return json.dumps(out, ensure_ascii=False), 0, 0

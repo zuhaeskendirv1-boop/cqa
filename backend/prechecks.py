@@ -41,13 +41,13 @@ def _parse_ts(ts: str | None) -> float | None:
 def run(conversation: dict) -> dict:
     transcript = conversation.get("transcript", [])
     flags: list[dict] = []
-    op_turns = [(i, t) for i, t in enumerate(transcript) if t.get("speaker") == "operator"]
+    op_turns = [(i, t) for i, t in enumerate(transcript, start=1) if t.get("speaker") == "operator"]  # 1-based
     for i, t in op_turns:
         text = str(t.get("text", ""))
         for name in ("money_to_operator", "asks_personal_number", "asks_password", "asks_full_card", "guaranteed_return", "investment_advice", "rude"):
             if PATTERNS[name].search(text):
                 flags.append({"flag": name, "turn": i, "severity": "medium" if name in ("rude", "investment_advice") else "high"})
-    for i, t in enumerate(transcript):
+    for i, t in enumerate(transcript, start=1):
         if PII_LIKE.search(str(t.get("text", ""))):
             flags.append({"flag": "card_number_in_chat", "turn": i, "severity": "high"})
 
