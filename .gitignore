@@ -3,7 +3,6 @@
 __pycache__/
 *.pyc
 data/cqa.sqlite3*
-data/dev.json
 data/control*.json
 data/calibration.json
 .pytest_cache/

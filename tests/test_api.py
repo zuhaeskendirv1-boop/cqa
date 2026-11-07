@@ -1,6 +1,8 @@
 import os, tempfile
 os.environ["LLM_PROVIDER"] = "mock"
-os.environ["CQA_DB"] = os.path.join(tempfile.mkdtemp(), "t.sqlite3")
+_tmp = tempfile.mkdtemp()
+os.environ["CQA_DATA_DIR"] = _tmp  # no dev.json here -> samples are seeded
+os.environ["CQA_DB"] = os.path.join(_tmp, "t.sqlite3")
 from fastapi.testclient import TestClient
 from backend.main import app
 
