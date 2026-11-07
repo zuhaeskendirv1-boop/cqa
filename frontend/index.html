@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CQA — Conversation Quality Analytics</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<!--
+  Root component. Everything lives inside #cqa-root (styles scoped under .cqa, one global: window.CQA),
+  so the whole app can be dropped into a Dynamics 365 HTML web resource. Set window.CQA_API_BASE for a remote backend.
+-->
+<div id="cqa-root" class="cqa">
+  <header class="cqa-topbar">
+    <div class="cqa-brand">CQA <span>Conversation Quality Analytics</span></div>
+    <nav class="cqa-nav">
+      <button data-view="dialogs" class="active">Диалоги</button>
+      <button data-view="checklist">Чек-лист</button>
+      <button data-view="review">Апелляции <span id="appeal-badge" class="badge hidden">0</span></button>
+      <button data-view="calibration">Калибровка</button>
+    </nav>
+    <div class="cqa-stats" id="stats"></div>
+    <div class="role-box" title="Роль определяет права: operator — оспаривать; reviewer — решать апелляции и размечать; admin — всё, включая чек-лист">
+      <select id="role-sel"><option value="operator">operator</option><option value="reviewer">reviewer</option><option value="admin">admin</option></select>
+      <input id="role-token" placeholder="token" class="hidden">
+    </div>
+  </header>
+
+  <main id="view"></main>
+  <div id="toast" class="toast hidden"></div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/util.js"></script>
+<script src="/static/js/components/dialogs.js"></script>
+<script src="/static/js/components/card.js"></script>
+<script src="/static/js/components/checklist.js"></script>
+<script src="/static/js/components/review.js"></script>
+<script src="/static/js/components/calibration.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

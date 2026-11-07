@@ -1,0 +1,11 @@
+{
+  "_comment": "Rename to calibration.json. Few-shot examples per criterion id, taken from DEV dialogs your team labeled by hand. The evaluator injects up to 6 per criterion into the prompt. This is the cheapest way to move the model toward the organizers' Ground Truth.",
+  "greeting": [
+    {"snippet": "operator: Слушаю.", "answer": "no", "why": "нет приветствия и представления"},
+    {"snippet": "operator: Здравствуйте! Меня зовут Айгерим, Freedom Broker.", "answer": "yes", "why": "приветствие + имя + компания"}
+  ],
+  "resolution": [
+    {"snippet": "operator: Скорее всего это за обслуживание.", "answer": 0, "why": "догадка без проверки, следующий шаг не дан"},
+    {"snippet": "operator: Завтра после 10:00 вывод будет доступен.", "answer": 2, "why": "причина объяснена и дан конкретный срок"}
+  ]
+}

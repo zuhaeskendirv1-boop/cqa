@@ -1,0 +1,73 @@
+{
+  "error": "",
+  "isSuccess": true,
+  "data": {
+    "dataset_group_id": "SAMPLE",
+    "total_records": 4,
+    "records": [
+      {
+        "conversation_id": "s-ru-001",
+        "channel": "agent chat",
+        "language": "RU",
+        "audio_url": null,
+        "transcript": [
+          {"timestamp": "00:00", "speaker": "system", "text": "Клиент перешёл из бота к оператору."},
+          {"timestamp": "00:02", "speaker": "client", "text": "Здравствуйте, не могу вывести деньги с брокерского счёта, кнопка неактивна."},
+          {"timestamp": "00:15", "speaker": "operator", "text": "Здравствуйте! Меня зовут Айгерим, Freedom Broker. Подскажите, пожалуйста, вывод в тенге или в долларах, и были ли сегодня сделки по счёту?"},
+          {"timestamp": "00:40", "speaker": "client", "text": "В тенге. Да, продал акции сегодня утром."},
+          {"timestamp": "01:05", "speaker": "operator", "text": "Поняла вас. После продажи акций средства доступны к выводу после расчётов по сделке — это T+1, то есть на следующий торговый день. Поэтому кнопка сейчас неактивна. Завтра после 10:00 вывод будет доступен."},
+          {"timestamp": "01:30", "speaker": "client", "text": "А, понятно. Спасибо."},
+          {"timestamp": "01:40", "speaker": "operator", "text": "Пожалуйста! Остались ли ещё вопросы?"},
+          {"timestamp": "01:45", "speaker": "client", "text": "Нет, всё."},
+          {"timestamp": "01:50", "speaker": "operator", "text": "Хорошего дня, до свидания!"}
+        ]
+      },
+      {
+        "conversation_id": "s-ru-002",
+        "channel": "agent chat",
+        "language": "RU",
+        "audio_url": null,
+        "transcript": [
+          {"timestamp": "00:00", "speaker": "bot", "text": "Здравствуйте! Я виртуальный помощник Freedom. Чем могу помочь?"},
+          {"timestamp": "00:05", "speaker": "client", "text": "Оператора"},
+          {"timestamp": "00:06", "speaker": "system", "text": "Перевод на оператора."},
+          {"timestamp": "00:30", "speaker": "operator", "text": "Слушаю."},
+          {"timestamp": "00:45", "speaker": "client", "text": "У меня списалась комиссия 5000 тенге, за что?"},
+          {"timestamp": "01:10", "speaker": "operator", "text": "Скиньте номер карты и пароль от кабинета, посмотрю."},
+          {"timestamp": "01:30", "speaker": "client", "text": "Пароль?? Это нормально вообще?"},
+          {"timestamp": "01:50", "speaker": "operator", "text": "Ну как хотите. Скорее всего это за обслуживание, купите лучше акции Теслы, они точно вырастут."},
+          {"timestamp": "02:00", "speaker": "client", "text": "Понятно, спасибо за ничего."}
+        ]
+      },
+      {
+        "conversation_id": "s-kz-001",
+        "channel": "agent chat",
+        "language": "KZ",
+        "audio_url": null,
+        "transcript": [
+          {"timestamp": "00:00", "speaker": "client", "text": "Сәлеметсіз бе, қосымшаға кіре алмай жатырмын, SMS код келмейді."},
+          {"timestamp": "00:20", "speaker": "operator", "text": "Сәлеметсіз бе! Freedom Broker, менің атым Дәурен. Нөміріңіз қай оператордікі және соңғы рет код қашан келді?"},
+          {"timestamp": "00:50", "speaker": "client", "text": "Beeline, кеше келген, бүгін жоқ."},
+          {"timestamp": "01:20", "speaker": "operator", "text": "Түсінікті. Кейде SMS кешігеді. Қайта жіберуді басып, 2 минут күтіңіз. Келмесе, қосымшадағы «Push-код» арқылы кіруді таңдаңыз — ол SMS-ке тәуелсіз."},
+          {"timestamp": "02:30", "speaker": "client", "text": "Push арқылы кірдім, рахмет!"},
+          {"timestamp": "02:40", "speaker": "operator", "text": "Қуаныштымын! Тағы сұрақтарыңыз бар ма? Сау болыңыз, жақсы күн тілеймін!"}
+        ]
+      },
+      {
+        "conversation_id": "s-en-001",
+        "channel": "voice call",
+        "language": "EN",
+        "audio_url": "https://example.com/recordings/s-en-001.mp3",
+        "transcript": [
+          {"timestamp": "2026-10-01T10:00:00+05:00", "speaker": "operator", "text": "Freedom Broker, this is Mark, how can I help you?"},
+          {"timestamp": "2026-10-01T10:00:06+05:00", "speaker": "client", "text": "Hi, I want to know if my dividend from Apple was credited."},
+          {"timestamp": "2026-10-01T10:00:15+05:00", "speaker": "operator", "text": "Sure. Could you confirm the last four digits of your account number?"},
+          {"timestamp": "2026-10-01T10:00:22+05:00", "speaker": "client", "text": "4471."},
+          {"timestamp": "2026-10-01T10:00:50+05:00", "speaker": "operator", "text": "Thanks. I can see the dividend was paid by the issuer on the 14th; it's usually credited within 3 business days after that, so it should appear by Thursday. I'll also leave a note so you get a notification."},
+          {"timestamp": "2026-10-01T10:01:10+05:00", "speaker": "client", "text": "Great, thanks."},
+          {"timestamp": "2026-10-01T10:01:14+05:00", "speaker": "operator", "text": "You're welcome. Anything else I can help with? ... Have a good day, goodbye."}
+        ]
+      }
+    ]
+  }
+}
