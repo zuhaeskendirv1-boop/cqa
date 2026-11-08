@@ -114,7 +114,18 @@ def _mock(system: str, user: str, temperature: float, model: str) -> tuple[str, 
 _FN = {"openai": _openai, "ollama": _ollama, "mock": _mock}
 
 
-def complete_json(system: str, user: str, temperature: float = 0.1, model: str | None = None, retries: int = 2) -> tuple[dict, str]:
+def _wait_for(e: Exception, attempt: int) -> float:
+    """Rate limit (429): wait as long as the provider asks (Retry-After), else 15 s; other errors: short backoff."""
+    resp = getattr(e, "response", None)
+    if resp is not None and resp.status_code == 429:
+        try:
+            return min(60.0, float(resp.headers.get("retry-after", 15))) + 1
+        except ValueError:
+            return 15.0
+    return 1.5 * (attempt + 1)
+
+
+def complete_json(system: str, user: str, temperature: float = 0.1, model: str | None = None, retries: int = int(os.getenv("LLM_RETRIES", "5"))) -> tuple[dict, str]:
     if PROVIDER not in _FN:
         raise RuntimeError(f"unknown LLM_PROVIDER={PROVIDER}")
     model = model or MODEL
@@ -132,7 +143,8 @@ def complete_json(system: str, user: str, temperature: float = 0.1, model: str |
         except Exception as e:  # noqa: BLE001
             last_err = e
             usage["errors"] += 1
-            time.sleep(1.5 * (attempt + 1))
+            if attempt < retries:
+                time.sleep(_wait_for(e, attempt))
     raise RuntimeError(f"LLM call failed after {retries + 1} attempts: {last_err}")
 
 
