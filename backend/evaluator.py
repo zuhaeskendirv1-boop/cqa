@@ -160,7 +160,7 @@ def _num(v) -> float:
 def _clean(c: dict, r: dict, n_turns: int) -> dict:
     ans = r.get("answer")
     if isinstance(ans, str) and ans.strip().upper() in ("N/A", "NA"):
-        ans = "N/A" if c.get("na_allowed") else ("no" if c["type"] == "yes_no" else int(c.get("scale", {}).get("min", 0)))
+        ans = "N/A" if c.get("na_allowed") else ("no" if c["type"] in ("yes_no", "gross_error") else int(c.get("scale", {}).get("min", 0)))
     elif c["type"] in ("yes_no", "gross_error"):
         ans = "yes" if str(ans).strip().lower() in ("yes", "да", "true", "1", "иә") else "no"
     else:

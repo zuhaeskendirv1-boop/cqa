@@ -3,6 +3,7 @@ os.environ["LLM_PROVIDER"] = "mock"
 _tmp = tempfile.mkdtemp()
 os.environ["CQA_DATA_DIR"] = _tmp  # no dev.json here -> samples are seeded
 os.environ["CQA_DB"] = os.path.join(_tmp, "t.sqlite3")
+os.environ["CQA_RESULTS_DIR"] = os.path.join(_tmp, "results")  # never overwrite the real results/ folder
 from fastapi.testclient import TestClient
 from backend.main import app
 
@@ -87,7 +88,30 @@ def test_results_json_official_format():
     unscored = [r for r in doc["results"] if r["status"] == "error"]
     assert all(r["criteria"] == [] and r["score"] is None and r["error"] for r in unscored)
     w = c.post("/api/export/results/write", json={"group": "SAMPLE", "target": "dev"}).json()
-    assert w["path"] == "results/dev/results.json" and w["problems"] == []
+    assert w["path"].endswith("results/dev/results.json") and "\\" not in w["path"] and w["problems"] == []
+    assert os.path.exists(os.path.join(_tmp, "results", "dev", "results.json"))
+
+
+def test_failed_run_does_not_hide_good_evaluation():
+    from backend import main
+    c = client()
+    good = c.post("/api/evaluate", json={"conversation_id": "s-ru-001"}).json()
+    orig = main.evaluate
+    main.evaluate = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("LLM timeout"))
+    try:
+        c.post("/api/evaluate/batch", json={"conversation_ids": ["s-ru-001"]})
+        import time
+        for _ in range(50):
+            if not c.get("/api/evaluate/batch/status").json()["running"]:
+                break
+            time.sleep(0.1)
+    finally:
+        main.evaluate = orig
+    assert any(e["status"] == "error" for e in c.get("/api/evaluations?conversation_id=s-ru-001").json())
+    row = next(x for x in c.get("/api/conversations").json() if x["conversation_id"] == "s-ru-001")
+    assert row["evaluation_id"] == good["id"] and row["total"] == good["final_totals"]["total"]
+    rec = next(r for r in c.get("/api/export/results.json").json()["results"] if r["conversation_id"] == "s-ru-001")
+    assert rec["status"] == "ok"
 
 
 def test_import_and_export():

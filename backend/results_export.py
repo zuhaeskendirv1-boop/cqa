@@ -73,10 +73,19 @@ def record_for(conv: dict, ev: dict | None) -> dict:
     }
 
 
-def build(group: str | None = None) -> dict:
-    latest: dict[str, dict] = {}
+def latest_evals() -> dict[str, dict]:
+    """Latest evaluation per dialog. A failed run (status="error") never hides an earlier successful one:
+    one LLM timeout during «Переоценить все» must not turn a scored dialog into an error in results.json.
+    The error is used only when the dialog has no successful evaluation at all."""
+    ok: dict[str, dict] = {}
+    err: dict[str, dict] = {}
     for e in sorted(db.get_all("evaluations"), key=lambda e: e["created_at"]):
-        latest[e["conversation_id"]] = e
+        (err if e.get("status") == "error" else ok)[e["conversation_id"]] = e
+    return {**err, **ok}
+
+
+def build(group: str | None = None) -> dict:
+    latest = latest_evals()
     convs = [c for c in db.get_all("conversations") if not group or (c.get("dataset_group_id") or "").upper() == group.upper()]
     results = [record_for(c, latest.get(c["conversation_id"])) for c in sorted(convs, key=lambda c: c["conversation_id"])]
     return {"schema_version": "1.0", "team_name": TEAM_NAME, "model": model_info(), "results": results}

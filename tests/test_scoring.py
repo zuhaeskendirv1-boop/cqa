@@ -63,3 +63,9 @@ def test_sections():
     assert r["sections"]["Ведение и завершение диалога"]["score"] == round(100 * 5 / 35, 2)
     assert r["sections"]["Начало и понимание запроса"]["score"] == 100
     assert "Грубые нарушения" not in r["sections"]
+
+
+def test_disallowed_na_on_gross_error_becomes_no():
+    from backend.evaluator import _clean
+    crit = {"id": "critical", "type": "gross_error", "weight": 0, "na_allowed": False}
+    assert _clean(crit, {"answer": "N/A"}, 5)["answer"] == "no"

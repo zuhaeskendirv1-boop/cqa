@@ -2,7 +2,8 @@
 CQA.views.card = async function (root, { id, evalId }) {
   const { esc, el, toast, answerLabel, scoreClass, fmtTs, tsOffset } = CQA.util;
   const [conv, evals] = await Promise.all([CQA.api.conversation(id), CQA.api.evaluations(id)]);
-  const ev = evalId ? evals.find(e => e.id === evalId) : evals[0];
+  // default = newest SUCCESSFUL evaluation; a failed run (status "error") is shown only if picked or if nothing else exists
+  const ev = evalId ? evals.find(e => e.id === evalId) : (evals.find(e => e.status !== 'error') || evals[0]);
   const chk = ev ? ev.checklist_snapshot : null;
   const isCall = conv.channel === 'voice call';
   const pre = (ev && ev.prechecks) || conv.prechecks;
@@ -12,8 +13,8 @@ CQA.views.card = async function (root, { id, evalId }) {
     <section class="row gap top wrap">
       <button id="back" class="small">← к списку</button>
       <h2 class="grow">${esc(conv.conversation_id)} <span class="pill">${esc(conv.language)}</span> <span class="muted">${isCall ? '📞 звонок' : '💬 чат'}</span> <span class="muted small">${esc(conv.dataset_group_id || '')}</span></h2>
-      ${evals.length > 1 ? `<select id="ev-sel">${evals.map(e => `<option value="${e.id}" ${ev && e.id === ev.id ? 'selected' : ''}>${new Date(e.created_at).toLocaleString('ru-RU')} · ${esc(e.checklist_snapshot.name)} v${e.checklist_snapshot.version} · ${CQA.util.fmtTotal(e.final_totals.total)}</option>`).join('')}</select>` : ''}
-      ${ev ? `<button id="trace-btn" class="small" title="Промпты и сырые ответы модели — доказательство живого анализа">Показать трассу LLM</button>` : ''}
+      ${evals.length > 1 ? `<select id="ev-sel">${evals.map(e => `<option value="${e.id}" ${ev && e.id === ev.id ? 'selected' : ''}>${new Date(e.created_at).toLocaleString('ru-RU')} · ${e.checklist_snapshot ? `${esc(e.checklist_snapshot.name)} v${e.checklist_snapshot.version} · ${CQA.util.fmtTotal(e.final_totals.total)}` : '⚠ ошибка оценки'}</option>`).join('')}</select>` : ''}
+      ${ev && ev.status !== 'error' ? `<button id="trace-btn" class="small" title="Промпты и сырые ответы модели — доказательство живого анализа">Показать трассу LLM</button>` : ''}
       <button id="reeval" class="primary">${ev ? 'Переоценить' : 'Оценить'}</button>
     </section>`));
 
@@ -52,7 +53,7 @@ CQA.views.card = async function (root, { id, evalId }) {
 
   // ---------- results ----------
   if (ev && ev.status === 'error') {
-    rPane.innerHTML = `<div class="panel err"><b>Ошибка оценки:</b> ${esc(ev.error || '')}<br><span class="muted small">В results.json этот диалог уйдёт со status="error". Нажмите «Переоценить».</span></div>`;
+    rPane.innerHTML = `<div class="panel err"><b>Ошибка оценки:</b> ${esc(ev.error || '')}<br><span class="muted small">${evals.some(e => e.status !== 'error') ? 'Это неудачный запуск — в списке и в results.json используется последняя успешная оценка (выберите её выше).' : 'Успешной оценки нет — в results.json этот диалог уйдёт со status="error".'} Нажмите «Переоценить».</span></div>`;
   } else if (!ev) {
     rPane.innerHTML = `<p class="muted">Диалог ещё не оценён. Нажмите «Оценить».</p>`;
     if (pre.flags.length) rPane.appendChild(el(`<div class="precheck"><b>Автопроверки:</b> ${pre.flags.map(f => `<span class="flag">⚠ ${esc(f.flag)} #${f.turn}</span>`).join(' ')}</div>`));

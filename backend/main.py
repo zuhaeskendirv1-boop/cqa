@@ -30,6 +30,7 @@ from .scoring import compute_totals
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
+RESULTS_DIR = Path(os.getenv("CQA_RESULTS_DIR", ROOT / "results")).resolve()  # tests point this at a temp dir
 VERSION = "1.0.0"
 
 @asynccontextmanager
@@ -197,10 +198,7 @@ def import_conversations(body: ImportBody):
 
 
 def _latest_evals() -> dict[str, dict]:
-    latest: dict[str, dict] = {}
-    for e in sorted(db.get_all("evaluations"), key=lambda e: e["created_at"]):
-        latest[e["conversation_id"]] = e
-    return latest
+    return results_export.latest_evals()  # an "error" run never hides an earlier successful evaluation
 
 
 @app.get("/api/conversations")
@@ -537,12 +535,13 @@ class WriteResultsBody(BaseModel):
 def write_results(body: WriteResultsBody):
     """Write results/<dev|prod>/results.json into the repo and validate it — then `git add results && git commit && git push`."""
     doc = results_export.build(body.group)
-    out = ROOT / "results" / ("prod" if body.target == "prod" else "dev") / "results.json"
+    out = RESULTS_DIR / ("prod" if body.target == "prod" else "dev") / "results.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
     probs = results_export.validate(doc)
     n_ok = sum(r["status"] == "ok" for r in doc["results"])
-    return {"path": str(out.relative_to(ROOT)), "records": len(doc["results"]), "ok": n_ok, "error": len(doc["results"]) - n_ok, "problems": probs, "team_name": doc["team_name"], "model": doc["model"]}
+    path = out.relative_to(ROOT).as_posix() if out.is_relative_to(ROOT) else out.as_posix()  # "results/dev/results.json" on Windows too
+    return {"path": path, "records": len(doc["results"]), "ok": n_ok, "error": len(doc["results"]) - n_ok, "problems": probs, "team_name": doc["team_name"], "model": doc["model"]}
 
 
 @app.get("/api/groups")
